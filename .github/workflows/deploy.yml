@@ -49,14 +49,16 @@ jobs:
           Type=simple
           User=ec2-user
           WorkingDirectory=/home/ec2-user/funding-alert-bot
-          ExecStart=/usr/bin/python3 /home/ec2-user/funding-alert-bot/home/funding_alert_bot.py
+          ExecStart=/usr/bin/python3 /home/ec2-user/funding-alert-bot/funding_alert_bot.py
           Restart=always
           RestartSec=60
 
+          
           [Install]
           WantedBy=multi-user.target
           EOL"
           
+
           # 서비스 재시작
           ssh ec2 "sudo systemctl daemon-reload"
           ssh ec2 "sudo systemctl restart funding-alert" 
