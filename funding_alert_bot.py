@@ -443,14 +443,4 @@ def run_alert_bot():
 
 # ===== 루프 실행 =====
 if __name__ == "__main__":
-    while True:
-        now = datetime.now(timezone.utc)
-        # 현재 시간이 매시 55분인 경우에만 체크
-        if now.minute == 55:
-            print(f"[{(now + pd.Timedelta(hours=9)).strftime('%Y-%m-%d %H:%M:%S')} (KST)] 🔍 펀딩비 감시 중...")
-            run_alert_bot()
-            # 다음 체크를 위해 1분 대기
-            time.sleep(60)
-        else:
-            # 다음 체크 시간까지 대기 (1분)
-            time.sleep(60)
+    run_alert_bot()

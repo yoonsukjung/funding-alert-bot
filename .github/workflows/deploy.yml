@@ -46,19 +46,29 @@ jobs:
           After=network.target
 
           [Service]
-          Type=simple
+          Type=oneshot
           User=ec2-user
           WorkingDirectory=/home/ec2-user/funding-alert-bot
           ExecStart=/usr/bin/python3 /home/ec2-user/funding-alert-bot/funding_alert_bot.py
-          Restart=always
-          RestartSec=60
 
-          
           [Install]
           WantedBy=multi-user.target
           EOL"
-          
 
-          # 서비스 재시작
+          # systemd 타이머 설정
+          ssh ec2 "sudo tee /etc/systemd/system/funding-alert.timer << 'EOL'
+          [Unit]
+          Description=Run Funding Alert Bot at 55 minutes past every hour
+
+          [Timer]
+          OnCalendar=*-*-* *:55:00
+          Persistent=true
+
+          [Install]
+          WantedBy=timers.target
+          EOL"
+
+          # 서비스 및 타이머 활성화
           ssh ec2 "sudo systemctl daemon-reload"
-          ssh ec2 "sudo systemctl restart funding-alert" 
+          ssh ec2 "sudo systemctl enable funding-alert.timer"
+          ssh ec2 "sudo systemctl start funding-alert.timer" 
