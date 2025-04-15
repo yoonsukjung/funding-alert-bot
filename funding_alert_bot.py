@@ -20,120 +20,121 @@ SLIPPAGE_TARGET = 0.1      # 슬리피지 계산 목표 비율 (10%)
 alerted_symbols = set()
 
 # ===== Binance =====
-def get_binance_funding_rates():
-    # 최신 펀딩비 정보를 가져오는 엔드포인트 사용
-    url = "https://fapi.binance.com/fapi/v1/fundingRate"
-    try:
-        print(f"[{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}] 바이낸스 API 호출: {url}")
-        res = requests.get(url)
-        print(f"바이낸스 API 응답 상태 코드: {res.status_code}")
-        
-        if res.status_code != 200:
-            print(f"바이낸스 API 오류 응답: {res.text[:500]}")
-            return pd.DataFrame()
-            
-        data = res.json()
-        print(f"바이낸스 API 응답 데이터 개수: {len(data)}")
-        
-        # 거래 가능한 심볼 목록 가져오기
-        exchange_info_url = "https://fapi.binance.com/fapi/v1/exchangeInfo"
-        exchange_info_res = requests.get(exchange_info_url)
-        if exchange_info_res.status_code == 200:
-            exchange_info = exchange_info_res.json()
-            active_symbols = {symbol['symbol'] for symbol in exchange_info['symbols'] if symbol['status'] == 'TRADING'}
-            print(f"거래 가능한 심볼 수: {len(active_symbols)}")
-        else:
-            print(f"거래 가능한 심볼 목록 가져오기 실패: {exchange_info_res.text[:500]}")
-            active_symbols = set()
-        
-        funding_data = []
+def get_binance_predicted_funding_rates_via_ws(timeout=5):
+    """
+    Binance 모든 심볼의 예정 펀딩비(predictedFundingRate)와 nextFundingTime을 WebSocket으로 한 번에 수집
+    최초 메시지 수신 후 DataFrame 반환 (timeout: 연결 대기 최대 초)
+    """
+    from datetime import datetime, timezone
+    import pandas as pd
+    funding_data = []
+    received = {'done': False}
+
+    def on_message(ws, message):
+        data = json.loads(message)
         for entry in data:
-            if entry.get("fundingRate") is not None:
-                symbol = entry["symbol"]
-                # 거래 가능한 심볼만 처리
-                if symbol in active_symbols:
-                    # 펀딩 시간을 UTC로 변환
-                    funding_time = pd.to_datetime(entry["fundingTime"], unit="ms")
-                    funding_time = funding_time.replace(tzinfo=timezone.utc)
-                    
-                    # 다음 펀딩 시간 계산 (8시간 간격)
-                    next_funding = funding_time + pd.Timedelta(hours=8)
-                    
-                    funding_data.append({
-                        "exchange": "Binance",
-                        "symbol": symbol,
-                        "fundingRate": float(entry["fundingRate"]),
-                        "nextFundingTime": next_funding
-                    })
-                else:
-                    print(f"비활성화된 심볼 건너뛰기: {symbol}")
-        
-        # 결과가 비어있는 경우 빈 데이터프레임 반환
-        if not funding_data:
-            return pd.DataFrame()
-            
-        return pd.DataFrame(funding_data)
-    except requests.exceptions.RequestException as e:
-        print(f"바이낸스 API 요청 오류: {e}")
+            try:
+                funding_data.append({
+                    "exchange": "Binance",
+                    "symbol": entry["s"],
+                    "fundingRate": float(entry["r"]),
+                    "nextFundingTime": pd.to_datetime(entry["T"], unit="ms").replace(tzinfo=timezone.utc)
+                })
+            except Exception:
+                continue
+        received['done'] = True
+        ws.close()
+
+    def on_error(ws, error):
+        print(f"WebSocket 오류: {error}")
+        received['done'] = True
+        ws.close()
+
+    ws = websocket.WebSocketApp(
+        "wss://fstream.binance.com/ws/!markPrice@arr",
+        on_message=on_message,
+        on_error=on_error
+    )
+    import threading
+    wst = threading.Thread(target=ws.run_forever)
+    wst.daemon = True
+    wst.start()
+    import time
+    t0 = time.time()
+    while not received['done'] and time.time() - t0 < timeout:
+        time.sleep(0.1)
+    if not funding_data:
+        print("WebSocket로 바이낸스 펀딩비 데이터 수신 실패")
         return pd.DataFrame()
-    except ValueError as e:
-        print(f"바이낸스 데이터 파싱 오류: {e}")
-        if 'res' in locals():
-            print(f"바이낸스 원본 응답: {res.text[:500]}")
-        return pd.DataFrame()
+    return pd.DataFrame(funding_data)
+
+# 기존 REST 방식은 비효율적이므로 주석 처리 또는 삭제
+# def get_binance_predicted_funding_rates(max_symbols=None):
+#     ...
 
 # ===== Bybit =====
-def get_bybit_funding_rates():
-    # V5 API 사용
-    url = "https://api.bybit.com/v5/market/tickers"
-    params = {"category": "linear"}
-    try:
-        print(f"[{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}] 바이비트 API 호출: {url}")
-        res = requests.get(url, params=params)
-        print(f"바이비트 API 응답 상태 코드: {res.status_code}")
-        
-        if res.status_code != 200:
-            print(f"바이비트 API 오류 응답: {res.text[:500]}")
-            return pd.DataFrame()
-            
-        data = res.json()
-        
-        if "result" not in data or "list" not in data["result"]:
-            print(f"바이비트 API 응답에 올바른 데이터 구조가 없습니다: {str(data)[:500]}")
-            return pd.DataFrame()
-            
-        print(f"바이비트 API 응답 데이터 개수: {len(data['result']['list'])}")
-        
-        funding_data = []
-        for entry in data["result"]["list"]:
-            # 펀딩비 데이터가 있는 심볼만 처리
-            if "fundingRate" in entry and entry["fundingRate"] and entry["fundingRate"] != "":
+import websocket
+import json
+
+def get_bybit_predicted_funding_rates_via_ws(timeout=5):
+    """
+    Bybit 모든 심볼의 예정 펀딩비(fundingRate)와 nextFundingTime을 WebSocket(tickers.linear)으로 한 번에 수집
+    최초 메시지 수신 후 DataFrame 반환 (timeout: 연결 대기 최대 초)
+    """
+    from datetime import datetime, timezone
+    import pandas as pd
+    funding_data = []
+    received = {'done': False}
+
+    def on_message(ws, message):
+        data = json.loads(message)
+        if data.get('topic') == 'tickers' and 'data' in data:
+            for entry in data['data']:
                 try:
-                    # 다음 펀딩 시간 계산 (8시간 간격)
-                    now = datetime.now(timezone.utc)
-                    # 현재 시간을 8시간 단위로 올림
-                    next_funding = now + pd.Timedelta(hours=8 - (now.hour % 8))
-                    # 초와 마이크로초를 0으로 설정
-                    next_funding = next_funding.replace(minute=0, second=0, microsecond=0)
-                    
                     funding_data.append({
                         "exchange": "Bybit",
                         "symbol": entry["symbol"],
                         "fundingRate": float(entry["fundingRate"]),
-                        "nextFundingTime": next_funding
+                        "nextFundingTime": pd.to_datetime(entry["nextFundingTime"], unit="ms").replace(tzinfo=timezone.utc)
                     })
-                except (ValueError, TypeError) as e:
-                    print(f"바이비트 '{entry['symbol']}' 펀딩비 파싱 오류: {e}, 값: '{entry['fundingRate']}'")
+                except Exception:
                     continue
-        return pd.DataFrame(funding_data)
-    except requests.exceptions.RequestException as e:
-        print(f"바이비트 API 요청 오류: {e}")
+            received['done'] = True
+            ws.close()
+
+    def on_error(ws, error):
+        print(f"Bybit WebSocket 오류: {error}")
+        received['done'] = True
+        ws.close()
+
+    def on_open(ws):
+        ws.send(json.dumps({
+            "op": "subscribe",
+            "args": ["tickers.linear"]
+        }))
+
+    ws = websocket.WebSocketApp(
+        "wss://stream.bybit.com/v5/public/linear",
+        on_message=on_message,
+        on_error=on_error
+    )
+    ws.on_open = on_open
+
+    import threading, time
+    wst = threading.Thread(target=ws.run_forever)
+    wst.daemon = True
+    wst.start()
+    t0 = time.time()
+    while not received['done'] and time.time() - t0 < timeout:
+        time.sleep(0.1)
+    if not funding_data:
+        print("WebSocket로 Bybit 펀딩비 데이터 수신 실패")
         return pd.DataFrame()
-    except ValueError as e:
-        print(f"바이비트 데이터 파싱 오류: {e}")
-        if 'res' in locals():
-            print(f"바이비트 원본 응답: {res.text[:500]}")
-        return pd.DataFrame()
+    return pd.DataFrame(funding_data)
+
+# 기존 REST 방식은 비효율적이므로 주석 처리 또는 삭제
+# def get_bybit_predicted_funding_rates():
+#     ...
 
 # ===== Orderbook 분석 =====
 def get_binance_orderbook(symbol):
@@ -376,8 +377,8 @@ def send_telegram_message(token, chat_id, message):
 def run_alert_bot():
     print(f"[{(datetime.now(timezone.utc) + pd.Timedelta(hours=9)).strftime('%Y-%m-%d %H:%M:%S')} (KST)] 🔍 펀딩비 감시 중...")
     try:
-        binance_df = get_binance_funding_rates()
-        bybit_df = get_bybit_funding_rates()
+        binance_df = get_binance_predicted_funding_rates_via_ws()
+        bybit_df = get_bybit_predicted_funding_rates_via_ws()
     except Exception as e:
         print("데이터 수집 오류:", e)
         return
