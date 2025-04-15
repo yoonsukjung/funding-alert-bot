@@ -33,7 +33,7 @@ jobs:
           scp -r ./* ec2:~/funding-alert-bot/
           
           # 필요한 패키지 설치
-          ssh ec2 "cd ~/funding-alert-bot && pip3 install -r requirements.txt"
+          ssh ec2 "cd ~/funding-alert-bot && pip3 install numpy==1.24.3 pandas==2.0.3 -r requirements.txt"
           
           # 환경 변수 설정
           ssh ec2 "echo 'TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}' > ~/funding-alert-bot/.env"
