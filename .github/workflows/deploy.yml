@@ -1,0 +1,62 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh/
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          cat >>~/.ssh/config <<END
+          Host ec2
+            HostName ${{ secrets.EC2_HOST }}
+            User ec2-user
+            IdentityFile ~/.ssh/deploy_key
+            StrictHostKeyChecking no
+          END
+      
+      - name: Deploy to EC2
+        run: |
+          # 프로젝트 디렉토리 생성
+          ssh ec2 "mkdir -p ~/funding-alert-bot"
+          
+          # 파일 복사
+          scp -r ./* ec2:~/funding-alert-bot/
+          
+          # 필요한 패키지 설치
+          ssh ec2 "cd ~/funding-alert-bot && pip3 install -r requirements.txt"
+          
+          # 환경 변수 설정
+          ssh ec2 "echo 'TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}' > ~/funding-alert-bot/.env"
+          ssh ec2 "echo 'TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}' >> ~/funding-alert-bot/.env"
+          
+          # systemd 서비스 설정
+          ssh ec2 "sudo tee /etc/systemd/system/funding-alert.service << 'EOL'
+          [Unit]
+          Description=Funding Rate Alert Bot
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=ec2-user
+          WorkingDirectory=/home/ec2-user/funding-alert-bot
+          ExecStart=/usr/bin/python3 /home/ec2-user/funding-alert-bot/home/funding_alert_bot.py
+          Restart=always
+          RestartSec=60
+
+          [Install]
+          WantedBy=multi-user.target
+          EOL"
+          
+          # 서비스 재시작
+          ssh ec2 "sudo systemctl daemon-reload"
+          ssh ec2 "sudo systemctl restart funding-alert" 
