@@ -1,0 +1,56 @@
+aiodns==3.2.0
+aiohappyeyeballs==2.4.4
+aiohttp==3.10.11
+aiosignal==1.3.2
+asyncio==3.4.3
+attrs==24.3.0
+Bottleneck @ file:///private/var/folders/nz/j6p8yfhx1mv_0grj5xl4650h0000gp/T/abs_55txi4fy1u/croot/bottleneck_1731058642212/work
+ccxt==4.4.47
+certifi==2024.12.14
+cffi==1.17.1
+charset-normalizer==3.4.1
+click @ file:///Users/builder/cbouss/perseverance-python-buildout/croot/click_1699237822453/work
+contourpy @ file:///private/var/folders/k1/30mswbxs7r1g6zwn8y4fyt500000gp/T/abs_2cvjf0v4ux/croot/contourpy_1732540055997/work
+cryptography==44.0.0
+cycler @ file:///tmp/build/80754af9/cycler_1637851556182/work
+dateparser==1.2.0
+fonttools @ file:///private/var/folders/nz/j6p8yfhx1mv_0grj5xl4650h0000gp/T/abs_60c8ux4mkl/croot/fonttools_1713551354374/work
+frozenlist==1.5.0
+idna==3.10
+kiwisolver @ file:///Users/builder/cbouss/perseverance-python-buildout/croot/kiwisolver_1699239145780/work
+matplotlib==3.10.0
+multidict==6.1.0
+numexpr @ file:///private/var/folders/nz/j6p8yfhx1mv_0grj5xl4650h0000gp/T/abs_b3kvvt6tc6/croot/numexpr_1730215947700/work
+numpy @ file:///private/var/folders/k1/30mswbxs7r1g6zwn8y4fyt500000gp/T/abs_a51i_mbs7m/croot/numpy_and_numpy_base_1708638620867/work/dist/numpy-1.26.4-cp312-cp312-macosx_11_0_arm64.whl#sha256=37afb6b734a197702d848df93bd67c10b52f6467d56e518950d84b6b1c949d27
+packaging @ file:///private/var/folders/nz/j6p8yfhx1mv_0grj5xl4650h0000gp/T/abs_a6_qk3qyg7/croot/packaging_1734472142254/work
+pandas @ file:///private/var/folders/nz/j6p8yfhx1mv_0grj5xl4650h0000gp/T/abs_4aifrweohv/croot/pandas_1732735109535/work/dist/pandas-2.2.3-cp312-cp312-macosx_11_0_arm64.whl#sha256=123f63647068e74a9e99f9fd6ab9ee71cd9f6d1c55fa82c75a587a95021910a5
+patsy @ file:///private/var/folders/k1/30mswbxs7r1g6zwn8y4fyt500000gp/T/abs_70o6mid86v/croot/patsy_1718378180175/work
+pillow @ file:///private/var/folders/nz/j6p8yfhx1mv_0grj5xl4650h0000gp/T/abs_cficifsvns/croot/pillow_1734430610764/work
+portalocker @ file:///private/var/folders/k1/30mswbxs7r1g6zwn8y4fyt500000gp/T/abs_5dyhwqlvba/croot/portalocker_1734032544133/work
+propcache==0.2.1
+pycares==4.5.0
+pycparser==2.22
+pycryptodome==3.21.0
+pyparsing @ file:///private/var/folders/nz/j6p8yfhx1mv_0grj5xl4650h0000gp/T/abs_65qfw6vkxg/croot/pyparsing_1731445528142/work
+python-binance==1.0.27
+python-dateutil @ file:///private/var/folders/k1/30mswbxs7r1g6zwn8y4fyt500000gp/T/abs_66ud1l42_h/croot/python-dateutil_1716495741162/work
+python-dotenv @ file:///Users/builder/cbouss/perseverance-python-buildout/croot/python-dotenv_1699238520458/work
+pytz @ file:///private/var/folders/k1/30mswbxs7r1g6zwn8y4fyt500000gp/T/abs_a4b76c83ik/croot/pytz_1713974318928/work
+PyYAML @ file:///private/var/folders/nz/j6p8yfhx1mv_0grj5xl4650h0000gp/T/abs_faoex52hrr/croot/pyyaml_1728657970485/work
+regex==2024.11.6
+requests==2.32.3
+scipy @ file:///private/var/folders/nz/j6p8yfhx1mv_0grj5xl4650h0000gp/T/abs_38q_xncfpw/croot/scipy_1731623379533/work/dist/scipy-1.14.1-cp312-cp312-macosx_11_0_arm64.whl#sha256=31109bd786aa701f5c971d334b07054231058c525a58b01a07344aa41ae6b7f4
+setuptools==75.1.0
+six @ file:///tmp/build/80754af9/six_1644875935023/work
+slack_sdk==3.34.0
+statsmodels @ file:///private/var/folders/nz/j6p8yfhx1mv_0grj5xl4650h0000gp/T/abs_7c7d2abv9z/croot/statsmodels_1734018881511/work
+tornado @ file:///private/var/folders/nz/j6p8yfhx1mv_0grj5xl4650h0000gp/T/abs_0axef5a0m0/croot/tornado_1733960501260/work
+typing_extensions==4.12.2
+tzdata @ file:///croot/python-tzdata_1690578112552/work
+tzlocal==5.2
+unicodedata2 @ file:///private/var/folders/k1/30mswbxs7r1g6zwn8y4fyt500000gp/T/abs_b99hn8t9lq/croot/unicodedata2_1736541774279/work
+urllib3==2.3.0
+websocket-client @ file:///private/var/folders/nz/j6p8yfhx1mv_0grj5xl4650h0000gp/T/abs_d37u7gqts8/croot/websocket-client_1715878310260/work
+websockets==14.1
+wheel==0.44.0
+yarl==1.18.3
