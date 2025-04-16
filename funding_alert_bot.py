@@ -6,10 +6,6 @@ import numpy as np
 
 # ===== 텔레그램 설정 =====
 TELEGRAM_TOKEN = "7877227554:AAFvgL7_-2ajrcEEPAcZh_1BRqyusXtTwXc"
-# 사용자의 실제 채팅 ID로 변경 필요 (봇 ID가 아님)
-# 채팅 ID를 얻는 방법:
-# 1. @userinfobot 봇에게 메시지 보내기
-# 2. @getidsbot 봇 사용
 TELEGRAM_CHAT_ID = "6744830265"  # 여기에 실제 사용자 ID 입력
 FUNDING_THRESHOLD = 0.013  # ±1.5%
 CHECK_INTERVAL_MIN = 5     # 몇 분마다 반복 실행할지 (ex. 5분)
@@ -76,65 +72,67 @@ def get_binance_predicted_funding_rates_via_ws(timeout=5):
 import websocket
 import json
 
-def get_bybit_predicted_funding_rates_via_ws(timeout=5):
+import traceback
+
+def get_bybit_linear_symbols():
+    url = "https://api.bybit.com/v5/market/instruments"
+    params = {"category": "linear"}
+    resp = requests.get(url, params=params)
+    data = resp.json()
+    symbols = [s['symbol'] for s in data['result']['list']]
+    return symbols
+
+
+def get_bybit_latest_funding_rates():
     """
-    Bybit 모든 심볼의 예정 펀딩비(fundingRate)와 nextFundingTime을 WebSocket(tickers.linear)으로 한 번에 수집
-    최초 메시지 수신 후 DataFrame 반환 (timeout: 연결 대기 최대 초)
+    Bybit 모든 linear perpetual 심볼의 최신 펀딩비(fundingRate)와 nextFundingTime을 /v5/market/tickers에서 한 번에 수집
+    DataFrame 반환
     """
-    from datetime import datetime, timezone
     import pandas as pd
+    from datetime import datetime, timezone
+    import requests
+
+    url = "https://api.bybit.com/v5/market/tickers"
+    params = {"category": "linear"}
+    resp = requests.get(url, params=params)
+    print("[Bybit API 응답 상태코드]", resp.status_code)
+    print("[Bybit API 응답 원문 일부]", resp.text[:1000])
+    if resp.status_code != 200:
+        print(f"[Bybit tickers 오류] status={resp.status_code}, text={resp.text[:500]}")
+        return pd.DataFrame(columns=["exchange", "symbol", "fundingRate", "nextFundingTime"])
+    try:
+        data = resp.json()
+        symbols = data["result"]["list"]
+        print(f"[Bybit 심볼 개수]: {len(symbols)}")
+        print("[Bybit 첫 3개 심볼]", symbols[:3])
+        for i, s in enumerate(symbols[:3]):
+            print(f"[Bybit 샘플 심볼 {i}] symbol={s.get('symbol')}, fundingRate={s.get('fundingRate')}, nextFundingTime={s.get('nextFundingTime')}")
+    except Exception as e:
+        print(f"[Bybit tickers 파싱 오류] {e}")
+        return pd.DataFrame(columns=["exchange", "symbol", "fundingRate", "nextFundingTime"])
     funding_data = []
-    received = {'done': False}
+    for s in symbols:
+        if (
+            s.get('symbol') and s.get('fundingRate') is not None
+            and s.get('nextFundingTime') is not None
+        ):
+            try:
+                funding_data.append({
+                    "exchange": "Bybit",
+                    "symbol": s["symbol"],
+                    "fundingRate": float(s["fundingRate"]),
+                    "nextFundingTime": pd.to_datetime(int(s["nextFundingTime"]), unit="ms").replace(tzinfo=timezone.utc)
+                })
+            except Exception as e:
+                print(f"[Bybit 펀딩비 파싱 오류] {s.get('symbol')}: {e}")
+    print(f"[Bybit 최종 funding_data 개수]: {len(funding_data)}")
+    if funding_data:
+        print("[Bybit 샘플 funding_data]", funding_data[:3])
+        return pd.DataFrame(funding_data)
+    else:
+        return pd.DataFrame(columns=["exchange", "symbol", "fundingRate", "nextFundingTime"])
 
-    def on_message(ws, message):
-        data = json.loads(message)
-        if data.get('topic') == 'tickers' and 'data' in data:
-            for entry in data['data']:
-                try:
-                    funding_data.append({
-                        "exchange": "Bybit",
-                        "symbol": entry["symbol"],
-                        "fundingRate": float(entry["fundingRate"]),
-                        "nextFundingTime": pd.to_datetime(entry["nextFundingTime"], unit="ms").replace(tzinfo=timezone.utc)
-                    })
-                except Exception:
-                    continue
-            received['done'] = True
-            ws.close()
 
-    def on_error(ws, error):
-        print(f"Bybit WebSocket 오류: {error}")
-        received['done'] = True
-        ws.close()
-
-    def on_open(ws):
-        ws.send(json.dumps({
-            "op": "subscribe",
-            "args": ["tickers.linear"]
-        }))
-
-    ws = websocket.WebSocketApp(
-        "wss://stream.bybit.com/v5/public/linear",
-        on_message=on_message,
-        on_error=on_error
-    )
-    ws.on_open = on_open
-
-    import threading, time
-    wst = threading.Thread(target=ws.run_forever)
-    wst.daemon = True
-    wst.start()
-    t0 = time.time()
-    while not received['done'] and time.time() - t0 < timeout:
-        time.sleep(0.1)
-    if not funding_data:
-        print("WebSocket로 Bybit 펀딩비 데이터 수신 실패")
-        return pd.DataFrame()
-    return pd.DataFrame(funding_data)
-
-# 기존 REST 방식은 비효율적이므로 주석 처리 또는 삭제
-# def get_bybit_predicted_funding_rates():
-#     ...
 
 # ===== Orderbook 분석 =====
 def get_binance_orderbook(symbol):
@@ -378,7 +376,7 @@ def run_alert_bot():
     print(f"[{(datetime.now(timezone.utc) + pd.Timedelta(hours=9)).strftime('%Y-%m-%d %H:%M:%S')} (KST)] 🔍 펀딩비 감시 중...")
     try:
         binance_df = get_binance_predicted_funding_rates_via_ws()
-        bybit_df = get_bybit_predicted_funding_rates_via_ws()
+        bybit_df = get_bybit_latest_funding_rates()
     except Exception as e:
         print("데이터 수집 오류:", e)
         return
@@ -391,20 +389,33 @@ def run_alert_bot():
     # 결합 대신 각 데이터프레임을 개별적으로 처리
     all_results = []
     
+    # Binance 진단
+    print("[Binance 전체 펀딩비]", binance_df.head())
+    print("[Binance 임계값 초과]", binance_df[binance_df["fundingRate"].abs() >= FUNDING_THRESHOLD].head())
     # 바이낸스 데이터 처리
     if not binance_df.empty:
         binance_extreme = binance_df[binance_df["fundingRate"].abs() >= FUNDING_THRESHOLD]
         binance_new_alerts = binance_extreme[~binance_extreme["symbol"].isin(alerted_symbols)]
+        print("[Binance 신규 알림 대상]", binance_new_alerts.head())
         if not binance_new_alerts.empty:
             all_results.append(binance_new_alerts)
-    
+
+    # Bybit 진단
+    print("[Bybit 전체 펀딩비 컬럼]", bybit_df.columns)
+    print("[Bybit 전체 펀딩비]", bybit_df.head())
+    if "fundingRate" in bybit_df.columns:
+        print("[Bybit 임계값 초과]", bybit_df[bybit_df["fundingRate"].abs() >= FUNDING_THRESHOLD].head())
+    else:
+        print("[Bybit] 'fundingRate' 컬럼 없음! 실제 컬럼:", bybit_df.columns)
+
     # 바이비트 데이터 처리
     if not bybit_df.empty:
         bybit_extreme = bybit_df[bybit_df["fundingRate"].abs() >= FUNDING_THRESHOLD]
         bybit_new_alerts = bybit_extreme[~bybit_extreme["symbol"].isin(alerted_symbols)]
+        print("[Bybit 신규 알림 대상]", bybit_new_alerts.head())
         if not bybit_new_alerts.empty:
             all_results.append(bybit_new_alerts)
-    
+
     # 결과 데이터가 있는 경우에만 처리
     if all_results:
         # reset_index 사용하여 안전하게 결합 (concat 사용 안함)
