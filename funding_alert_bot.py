@@ -308,30 +308,28 @@ def format_funding_alert(df, is_normal=False):
             symbol = row["symbol"]
             exchange = row["exchange"]
             msg += f"📉 <b>{exchange}</b> | <code>{symbol}</code> | {rate_pct:.2f}%"
-            
-            # 펀딩비 부과 시각과 남은 시간 계산
+
+            # 펀딩비 부과 시각과 남은 시간 계산 (UTC 기준)
             if pd.notnull(row["nextFundingTime"]):
                 now = datetime.now(timezone.utc)
                 next_time = row["nextFundingTime"]
                 time_diff = next_time - now
-                
-                # UTC를 KST로 변환 (UTC+9)
-                kst_time = next_time + pd.Timedelta(hours=9)
-                
-                # 남은 시간을 시:분:초 형식으로 변환
-                hours = time_diff.seconds // 3600
-                minutes = (time_diff.seconds % 3600) // 60
-                seconds = time_diff.seconds % 60
-                
-                msg += f"\n   ⏰ 다음 펀딩비 부과: {kst_time.strftime('%H:%M:%S')} (KST)"
+
+                # 남은 시간을 시:분:초 형식으로 변환 (UTC)
+                total_seconds = int(time_diff.total_seconds())
+                hours = total_seconds // 3600
+                minutes = (total_seconds % 3600) // 60
+                seconds = total_seconds % 60
+
+                msg += f"\n   ⏰ 다음 펀딩비 부과: {next_time.strftime('%H:%M:%S')} (UTC)"
                 msg += f"\n   ⏳ 남은 시간: {hours:02d}:{minutes:02d}:{seconds:02d}"
-            
+
             # Orderbook 분석 추가
             if exchange == "Binance":
                 bids, asks = get_binance_orderbook(symbol)
             else:
                 bids, asks = get_bybit_orderbook(symbol)
-                
+
             if bids is not None and asks is not None:
                 current_price = (bids.iloc[0]['price'] + asks.iloc[0]['price']) / 2
                 avg_volume, avg_value, _ = calculate_available_volume(bids, asks, current_price, symbol)
@@ -373,7 +371,7 @@ def send_telegram_message(token, chat_id, message):
 
 # ===== 감시 실행 =====
 def run_alert_bot():
-    print(f"[{(datetime.now(timezone.utc) + pd.Timedelta(hours=9)).strftime('%Y-%m-%d %H:%M:%S')} (KST)] 🔍 펀딩비 감시 중...")
+    print(f"[{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} (UTC)] 🔍 펀딩비 감시 중...")
     try:
         binance_df = get_binance_predicted_funding_rates_via_ws()
         bybit_df = get_bybit_latest_funding_rates()
