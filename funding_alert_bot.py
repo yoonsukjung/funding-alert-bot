@@ -79,7 +79,7 @@ def save_api_response(exchange_name, response_json):
     거래소 API 응답 원문을 파일로 저장합니다.
     파일명: api_response_{exchange_name}_{UTC시각}.json
     """
-    now = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    now = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     filename = f"api_response_{exchange_name}_{now}.json"
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(response_json, f, ensure_ascii=False, indent=2)
@@ -464,6 +464,45 @@ def run_alert_bot():
         else:
             print("❌ 정상 상태 알림 전송 실패")
 
+# ===== 커스텀 로거 =====
+import sys
+import threading
+
+class TelegramLogger:
+    def __init__(self, token, chat_id, max_length=3500):
+        self.token = token
+        self.chat_id = chat_id
+        self.max_length = max_length
+        self.buffer = ""
+        self.lock = threading.Lock()
+
+    def write(self, message):
+        # 줄바꿈 단위로 버퍼링
+        with self.lock:
+            self.buffer += message
+            while '\n' in self.buffer:
+                line, self.buffer = self.buffer.split('\n', 1)
+                self._send_line(line)
+
+    def flush(self):
+        with self.lock:
+            if self.buffer:
+                self._send_line(self.buffer)
+                self.buffer = ""
+
+    def _send_line(self, line):
+        if not line.strip():
+            return
+        # 너무 긴 로그는 분할 전송
+        for i in range(0, len(line), self.max_length):
+            chunk = line[i:i+self.max_length]
+            send_telegram_message(self.token, self.chat_id, f"<code>{chunk}</code>")
+
 # ===== 루프 실행 =====
 if __name__ == "__main__":
-    run_alert_bot()
+    # 표준 출력을 텔레그램 로거로 교체
+    sys.stdout = TelegramLogger(TELEGRAM_TOKEN, TELEGRAM_CHAT_ID)
+    try:
+        run_alert_bot()
+    finally:
+        sys.stdout.flush()
