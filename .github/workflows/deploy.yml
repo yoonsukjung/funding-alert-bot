@@ -61,7 +61,7 @@ jobs:
           Description=Run Funding Alert Bot at 55 minutes past every hour
 
           [Timer]
-          OnCalendar=*-*-* *:55:00
+          OnCalendar=*-*-* *:35:00,*:55:00
           Persistent=true
 
           [Install]
@@ -72,4 +72,6 @@ jobs:
           ssh ec2 "sudo systemctl daemon-reload"
           ssh ec2 "sudo systemctl enable funding-alert.timer"
           ssh ec2 "sudo systemctl start funding-alert.timer" 
-          ssh ec2 "sudo systemctl start funding-alert.service"
+          
+
+          
