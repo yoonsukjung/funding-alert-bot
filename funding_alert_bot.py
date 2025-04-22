@@ -74,12 +74,25 @@ import json
 
 import traceback
 
+def save_api_response(exchange_name, response_json):
+    """
+    거래소 API 응답 원문을 파일로 저장합니다.
+    파일명: api_response_{exchange_name}_{UTC시각}.json
+    """
+    now = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    filename = f"api_response_{exchange_name}_{now}.json"
+    with open(filename, "w", encoding="utf-8") as f:
+        json.dump(response_json, f, ensure_ascii=False, indent=2)
+    print(f"[DEBUG] {exchange_name} API 응답 저장: {filename}")
+
 def get_bybit_linear_symbols():
     url = "https://api.bybit.com/v5/market/instruments"
     params = {"category": "linear"}
-    resp = requests.get(url, params=params)
-    data = resp.json()
-    symbols = [s['symbol'] for s in data['result']['list']]
+    bybit_response = requests.get(url, params=params)
+    bybit_data = bybit_response.json()
+    # Bybit API 응답 원문 저장
+    save_api_response("bybit", bybit_data)
+    symbols = [s['symbol'] for s in bybit_data['result']['list']]
     return symbols
 
 
