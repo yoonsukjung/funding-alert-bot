@@ -58,10 +58,11 @@ jobs:
           # systemd 타이머 설정
           ssh ec2 "sudo tee /etc/systemd/system/funding-alert.timer << 'EOL'
           [Unit]
-          Description=Run Funding Alert Bot at 55 minutes past every hour
+          Description=Run Funding Alert Bot at 35 and 55 minutes past every hour
 
           [Timer]
-          OnCalendar=*-*-* *:35:00,*:55:00
+          OnCalendar=*-*-* *:35:00
+          OnCalendar=*-*-* *:55:00
           Persistent=true
 
           [Install]
