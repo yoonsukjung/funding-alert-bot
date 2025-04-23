@@ -39,9 +39,8 @@ jobs:
           ssh ec2 "echo 'TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}' > ~/funding-alert-bot/.env"
           ssh ec2 "echo 'TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}' >> ~/funding-alert-bot/.env"
           
-          # systemd 서비스 설정
-          ssh ec2 "sudo tee /etc/systemd/system/funding-alert.service << 'EOL'
-          [Unit]
+          # systemd 서비스 파일 생성
+          echo "[Unit]
           Description=Funding Rate Alert Bot
           After=network.target
 
@@ -52,12 +51,11 @@ jobs:
           ExecStart=/usr/bin/python3 /home/ec2-user/funding-alert-bot/funding_alert_bot.py
 
           [Install]
-          WantedBy=multi-user.target
-          EOL"
+          WantedBy=multi-user.target" | ssh ec2 "sudo tee /etc/systemd/system/funding-alert.service"
 
-          # systemd 타이머 설정
-          ssh ec2 "sudo tee /etc/systemd/system/funding-alert.timer << 'EOL'
-          [Unit]
+
+          # systemd 타이머 파일 생성
+          echo "[Unit]
           Description=Run Funding Alert Bot at 35 and 55 minutes past every hour
 
           [Timer]
@@ -66,8 +64,8 @@ jobs:
           Persistent=true
 
           [Install]
-          WantedBy=timers.target
-          EOL"
+          WantedBy=timers.target" | ssh ec2 "sudo tee /etc/systemd/system/funding-alert.timer"
+
 
           # 서비스 및 타이머 활성화
           ssh ec2 "sudo systemctl daemon-reload"
