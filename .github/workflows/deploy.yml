@@ -41,33 +41,33 @@ jobs:
           
           # systemd 서비스 파일 생성
           cat <<EOF | ssh ec2 "sudo tee /etc/systemd/system/funding-alert.service"
-          [Unit]
-          Description=Funding Rate Alert Bot
-          After=network.target
+[Unit]
+Description=Funding Rate Alert Bot
+After=network.target
 
-          [Service]
-          Type=oneshot
-          User=ec2-user
-          WorkingDirectory=/home/ec2-user/funding-alert-bot
-          ExecStart=/usr/bin/python3 /home/ec2-user/funding-alert-bot/funding_alert_bot.py
+[Service]
+Type=oneshot
+User=ec2-user
+WorkingDirectory=/home/ec2-user/funding-alert-bot
+ExecStart=/usr/bin/python3 /home/ec2-user/funding-alert-bot/funding_alert_bot.py
 
-          [Install]
-          WantedBy=multi-user.target
-          EOF
+[Install]
+WantedBy=multi-user.target
+EOF
 
           # systemd 타이머 파일 생성
           cat <<EOF | ssh ec2 "sudo tee /etc/systemd/system/funding-alert.timer"
-          [Unit]
-          Description=Run Funding Alert Bot at 35 and 55 minutes past every hour
+[Unit]
+Description=Run Funding Alert Bot at 35 and 55 minutes past every hour
 
-          [Timer]
-          OnCalendar=*-*-* *:35:00
-          OnCalendar=*-*-* *:55:00
-          Persistent=true
+[Timer]
+OnCalendar=*-*-* *:35:00
+OnCalendar=*-*-* *:55:00
+Persistent=true
 
-          [Install]
-          WantedBy=timers.target
-          EOF
+[Install]
+WantedBy=timers.target
+EOF
 
 
           # 서비스 및 타이머 활성화
