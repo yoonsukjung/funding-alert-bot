@@ -19,7 +19,7 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "."
-          target: "/home/ec2-user/funding_alert_bot"
+          target: "/home/ec2-user/funding-alert-bot"
 
       - name: Install requirements on EC2
         uses: appleboy/ssh-action@v0.1.10
@@ -28,7 +28,7 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /home/ec2-user/funding_alert_bot
+            cd /home/ec2-user/funding-alert-bot
             pip3 install --user -r requirements.txt
 
       - name: Set up crontab on EC2
@@ -40,6 +40,15 @@ jobs:
           script: |
             crontab -l > mycron || true
             sed -i '/funding_alert_bot.py/d' mycron
-            echo "30,55 * * * * /usr/bin/python3 /home/ec2-user/funding_alert_bot/funding_alert_bot.py >> /home/ec2-user/funding_alert_bot/funding.log 2>&1" >> mycron
+            echo "30,55 * * * * /usr/bin/python3 /home/ec2-user/funding-alert-bot/funding_alert_bot.py >> /home/ec2-user/funding-alert-bot/funding.log 2>&1" >> mycron
             crontab mycron
             rm mycron
+
+      - name: Run funding_alert_bot.py once after deploy
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            python3 /home/ec2-user/funding-alert-bot/funding_alert_bot.py

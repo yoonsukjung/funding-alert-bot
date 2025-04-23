@@ -357,30 +357,36 @@ def format_funding_alert(df, is_normal=False):
 
 # ===== 텔레그램 메시지 전송 =====
 def send_telegram_message(token, chat_id, message):
+    """
+    텔레그램 메시지를 4096자 단위로 분할 전송 (API 제한)
+    API 호출 결과(상태코드, 성공/실패)만 터미널에 print로 출력
+    """
+    import sys
+    import time
     url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": message,
-        "parse_mode": "HTML"
-    }
-    try:
-        print(f"텔레그램 API 호출 시도: {url}")
-        print(f"전송할 메시지: {message}")
-        response = requests.post(url, data=payload)
-        print(f"텔레그램 API 응답 상태 코드: {response.status_code}")
-        print(f"텔레그램 API 응답 내용: {response.text}")
-        
-        if response.status_code != 200:
-            print(f"텔레그램 API 오류 응답: {response.text}")
-            return False
-            
-        return True
-    except requests.exceptions.RequestException as e:
-        print(f"텔레그램 API 요청 오류: {str(e)}")
-        return False
-    except Exception as e:
-        print(f"텔레그램 알림 전송 중 예상치 못한 오류: {str(e)}")
-        return False
+    max_length = 4096
+    success = True
+    for i in range(0, len(message), max_length):
+        chunk = message[i:i+max_length]
+        payload = {
+            "chat_id": chat_id,
+            "text": chunk,
+            "parse_mode": "HTML"
+        }
+        try:
+            print(f"[텔레그램] API 호출 시도: {url}")
+            response = requests.post(url, data=payload)
+            print(f"[텔레그램] 응답 상태 코드: {response.status_code}")
+            if response.status_code != 200:
+                print(f"[텔레그램] 오류 응답: {response.text}")
+                success = False
+            else:
+                print(f"[텔레그램] 메시지 전송 성공 (길이: {len(chunk)})")
+        except Exception as e:
+            print(f"[텔레그램] 예외 발생: {e}")
+            success = False
+        time.sleep(0.5)  # API rate limit 보호
+    return success
 
 # ===== 감시 실행 =====
 def run_alert_bot():
@@ -464,45 +470,10 @@ def run_alert_bot():
         else:
             print("❌ 정상 상태 알림 전송 실패")
 
-# ===== 커스텀 로거 =====
-import sys
-import threading
-
-class TelegramLogger:
-    def __init__(self, token, chat_id, max_length=3500):
-        self.token = token
-        self.chat_id = chat_id
-        self.max_length = max_length
-        self.buffer = ""
-        self.lock = threading.Lock()
-
-    def write(self, message):
-        # 줄바꿈 단위로 버퍼링
-        with self.lock:
-            self.buffer += message
-            while '\n' in self.buffer:
-                line, self.buffer = self.buffer.split('\n', 1)
-                self._send_line(line)
-
-    def flush(self):
-        with self.lock:
-            if self.buffer:
-                self._send_line(self.buffer)
-                self.buffer = ""
-
-    def _send_line(self, line):
-        if not line.strip():
-            return
-        # 너무 긴 로그는 분할 전송
-        for i in range(0, len(line), self.max_length):
-            chunk = line[i:i+self.max_length]
-            send_telegram_message(self.token, self.chat_id, f"<code>{chunk}</code>")
-
 # ===== 루프 실행 =====
 if __name__ == "__main__":
-    # 표준 출력을 텔레그램 로거로 교체
-    sys.stdout = TelegramLogger(TELEGRAM_TOKEN, TELEGRAM_CHAT_ID)
     try:
         run_alert_bot()
-    finally:
-        sys.stdout.flush()
+    except Exception as e:
+        print(f"[오류] {e}")
+
