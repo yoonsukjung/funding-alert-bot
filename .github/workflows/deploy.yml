@@ -73,6 +73,7 @@ jobs:
           ssh ec2 "sudo systemctl daemon-reload"
           ssh ec2 "sudo systemctl enable funding-alert.timer"
           ssh ec2 "sudo systemctl start funding-alert.timer" 
+          ssh ec2 "sudo systemctl start funding-alert.service"
           
 
           
