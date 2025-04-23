@@ -1,33 +1,45 @@
-name: Deploy to EC2
+name: Deploy funding_alert_bot to EC2
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:
+    branches: [ main ]  # 원하는 브랜치로 변경 가능
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Configure SSH
-        run: |
-          mkdir -p ~/.ssh/
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          cat >>~/.ssh/config <<END
-          Host ec2
-            HostName ${{ secrets.EC2_HOST }}
-            User ec2-user
-            IdentityFile ~/.ssh/deploy_key
-            StrictHostKeyChecking no
-          END
-      
-      - name: Deploy to EC2
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: |
-          chmod +x deploy.sh
-          ./deploy.sh
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Copy files to EC2 via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "."
+          target: "/home/${{ secrets.EC2_USER }}/funding_alert_bot"
+
+      - name: Install requirements on EC2
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/${{ secrets.EC2_USER }}/funding_alert_bot
+            pip3 install --user -r requirements.txt
+
+      - name: Set up crontab on EC2
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            crontab -l > mycron || true
+            sed -i '/funding_alert_bot.py/d' mycron
+            echo "30,55 * * * * /usr/bin/python3 /home/${{ secrets.EC2_USER }}/funding_alert_bot/funding_alert_bot.py >> /home/${{ secrets.EC2_USER }}/funding_alert_bot/funding.log 2>&1" >> mycron
+            crontab mycron
+            rm mycron
